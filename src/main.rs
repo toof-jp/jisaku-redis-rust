@@ -14,10 +14,8 @@ fn main() {
                 let buf_reader = BufReader::new(reader_stream);
                 
                 for line in buf_reader.lines() {
-                    if let Ok(s) = line {
-                        if s == "PING" {
-                            stream.write_all(b"+PONG\r\n").unwrap();
-                        }
+                    if let Ok(s) = line && s == "PING" {
+                        stream.write_all(b"+PONG\r\n").unwrap();
                     }
                 }
             }
