@@ -1,23 +1,29 @@
-#![allow(unused_imports)]
-use std::{io::{BufRead, BufReader, Write}, net::TcpListener};
+use tokio::io::{BufReader, AsyncBufReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 
-use bytes::buf;
+#[tokio::main]
+async fn main() {
+    let listener = TcpListener::bind("127.0.0.1:6379").await.unwrap();
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
+    loop {
+        let stream = listener.accept().await;
 
-    for stream in listener.incoming() {
         match stream {
-            Ok(mut stream) => {
+            Ok((mut stream, _)) => {
                 println!("accepted new connection");
-                let reader_stream = stream.try_clone().unwrap();
-                let buf_reader = BufReader::new(reader_stream);
                 
-                for line in buf_reader.lines() {
-                    if let Ok(s) = line && s == "PING" {
-                        stream.write_all(b"+PONG\r\n").unwrap();
+                tokio::spawn(async move {
+                    let (mut read_stream, mut write_stream) = stream.split();
+
+                    let buf_reader = BufReader::new(&mut read_stream);
+                    let mut lines = buf_reader.lines();
+                    
+                    while let Some(line) = lines.next_line().await.unwrap() {
+                        if line == "PING" {
+                            write_stream.write_all(b"+PONG\r\n").await.unwrap();
+                        }
                     }
-                }
+                });
             }
             Err(e) => {
                 println!("error: {}", e);
